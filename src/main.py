@@ -20,11 +20,15 @@ def _xurl_error_details(exc: Exception) -> str:
     return str(exc)
 
 
+def _env_true(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() == "true"
+
+
 def _check_setup() -> None:
     """Fail early, with a clear message, on the most common setup problems."""
-    if not os.getenv("XAI_API_KEY"):
+    if not _env_true("MOCK_GROK") and not os.getenv("XAI_API_KEY"):
         sys.exit("XAI_API_KEY is not set. Copy .env.example to .env and fill in your xAI API key.")
-    if shutil.which("xurl") is None:
+    if not _env_true("MOCK_X_API") and shutil.which("xurl") is None:
         sys.exit("xurl is not installed, or its folder is not on your PATH. See step A.1 of the README.")
 
 
@@ -32,6 +36,7 @@ def _worker(
     post_with_context: PostWithContext,
     dry_run: bool = False,
     test_mode: bool = True,
+    out_path: str | None = None,
 ):
     """
     Fetch and try to write and submit a note for one post.
@@ -53,6 +58,10 @@ def _worker(
         log_strings.append(
             f"\n*MISLEADING TAGS:*\n  {[tag.value for tag in note_result.note.misleading_tags]}\n"
         )
+
+    if note_result.note is not None and out_path:
+        with open(out_path, "a") as f:
+            f.write(note_result.note.model_dump_json() + "\n")
 
     if note_result.note is not None and not dry_run:
         try:
@@ -76,6 +85,7 @@ def main(
     dry_run: bool = False,
     concurrency: int = 1,
     test_mode: bool = True,
+    out_path: str | None = None,
 ):
     """
     Get up to `num_posts` recent posts eligible for notes and write notes for them.
@@ -106,13 +116,13 @@ def main(
     if concurrency > 1:
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = [
-                executor.submit(_worker, post, dry_run, test_mode) for post in eligible_posts
+                executor.submit(_worker, post, dry_run, test_mode, out_path) for post in eligible_posts
             ]
             for future in futures:
                 future.result()
     else:
         for post in eligible_posts:
-            _worker(post, dry_run, test_mode)
+            _worker(post, dry_run, test_mode, out_path)
     print("Done.")
 
 
@@ -133,11 +143,29 @@ if __name__ == "__main__":
         default=1,
         help="Number of concurrent tasks to run",
     )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Use canned Grok answers and canned posts (same as MOCK_GROK=true MOCK_X_API=true). Forces --dry-run.",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Append each written note as a JSON line to this file (check it with src/validate_note.py)",
+    )
     args = parser.parse_args()
+    if args.mock:
+        os.environ["MOCK_GROK"] = "true"
+        os.environ["MOCK_X_API"] = "true"
+    if _env_true("MOCK_GROK") or _env_true("MOCK_X_API"):
+        if not args.dry_run:
+            print("Mock mode is on: forcing --dry-run, nothing will be submitted.")
+        args.dry_run = True
     _check_setup()
     main(
         num_posts=args.num_posts,
         dry_run=args.dry_run,
         concurrency=args.concurrency,
         test_mode=os.getenv("TEST_MODE", "true").strip().lower() != "false",
+        out_path=args.out,
     )

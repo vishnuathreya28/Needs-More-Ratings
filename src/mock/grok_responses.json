@@ -1,0 +1,22 @@
+{
+  "1900000000000000001": {
+    "decision": "WRITE NOTE",
+    "note_text": "The Great Wall is generally not visible to the naked eye from low Earth orbit; astronauts, including China's Yang Liwei, have said they could not see it. https://www.nasa.gov/image-article/great-wall-of-china/",
+    "misleading_tags": ["factual_error"]
+  },
+  "1900000000000000002": {
+    "decision": "NO NOTE NEEDED",
+    "note_text": "",
+    "misleading_tags": []
+  },
+  "1900000000000000003": {
+    "decision": "NOT ENOUGH EVIDENCE",
+    "note_text": "",
+    "misleading_tags": []
+  },
+  "1900000000000000004": {
+    "decision": "WRITE NOTE",
+    "note_text": "The \"10% of the brain\" claim is a myth. Brain imaging shows nearly all regions are active over a day. https://www.scientificamerican.com/article/do-people-only-use-10-percent-of-their-brains/",
+    "misleading_tags": ["factual_error", "disputed_claim_as_fact"]
+  }
+}

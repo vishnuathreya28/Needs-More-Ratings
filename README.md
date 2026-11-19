@@ -194,6 +194,15 @@ A dry run fetches real posts and writes draft notes, but does not call the X API
 uv run src/main.py --num-posts 5 --dry-run
 ```
 
+To test the pipeline with no xAI credits and no X credentials, use mock mode. It uses canned posts (`src/mock/posts_eligible.json`) and canned Grok answers (`src/mock/grok_responses.json`), and always behaves as a dry run:
+
+```bash
+uv run src/main.py --mock --out notes.jsonl
+uv run src/validate_note.py --file notes.jsonl --check-urls
+```
+
+`MOCK_GROK=true` or `MOCK_X_API=true` in `.env` mocks just one side (for example, real posts with canned Grok answers).
+
 #### A.4 Submit test notes
 
 When the dry run works, run the writer without `--dry-run`.
