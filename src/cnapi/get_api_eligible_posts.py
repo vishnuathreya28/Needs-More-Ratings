@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Dict, List
 
@@ -17,7 +18,12 @@ def _fetch_posts_eligible_for_notes(
         test_mode: If True, use test mode for the API (default is True).
     Returns:
         A dictionary containing the API response.
+    Set MOCK_X_API=true to return canned posts instead (no xurl, no credentials).
     """
+    if os.getenv("MOCK_X_API", "").strip().lower() == "true":
+        from mock import mock_posts_eligible_response
+
+        return mock_posts_eligible_response()
     path = (
         "/2/notes/search/posts_eligible_for_notes"
         f"?test_mode={'true' if test_mode else 'false'}"

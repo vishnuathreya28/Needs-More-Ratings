@@ -37,7 +37,12 @@ def get_grok_search_json_response(
     """
     One call that lets Grok search the web and X, and answer with JSON
     matching `schema`.
+    Set MOCK_GROK=true to return a canned answer instead (no API call, no credits).
     """
+    if os.getenv("MOCK_GROK", "").strip().lower() == "true":
+        from mock import mock_grok_response
+
+        return mock_grok_response(prompt)
     payload = {
         "model": model,
         "input": [{"role": "user", "content": prompt}],
