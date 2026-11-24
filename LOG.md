@@ -16,7 +16,8 @@ Template:
 - Done: Submission with the evaluator gate: `main.py --num-posts 60 --concurrency 4`. 59 fetched, 13 skipped (noted), 22 skipped (declined), 24 researched -> 8 notes submitted, 12 NO NOTE NEEDED, 1 NOT ENOUGH EVIDENCE, 3 failed with xAI 429 "model at capacity" (not cached, will be retried). Log in `logs/submit-2026-11-24.log`.
 - Results / numbers: $1.31 for 24 posts ($0.055 per post). Pre-submit scores 0.87, 0.59, 0.31, 0.22 (all came back High) and -0.44, -0.84, -1.45, -1.55 (all came back Medium): calibration held 8/8. Totals over 21 notes: ClaimOpinion High 8 / Medium 11 / Low 2 (38% High, 10% Low), UrlValidity and HarassmentAbuse High 21/21.
 - Blockers: xAI capacity errors; `llm_util.py` has no retry.
-- Next: add retry with backoff on 429/5xx; keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
+- Done: `llm_util.py` retries xAI calls on 429, 5xx, timeouts and connection errors (5 attempts, ~10/20/40/80 s backoff with jitter, honours Retry-After); 400/401 fail at once. Tested with a fake server: 429-503-timeout-200 succeeds, 400 fails immediately, 5x429 gives up.
+- Next: keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
 
 ## 2026-11-23
 - Done: xAI key added to `.env`. First real runs: `main.py --num-posts 2 --dry-run`, then `--num-posts 10 --dry-run --concurrency 4`. Nothing submitted.
