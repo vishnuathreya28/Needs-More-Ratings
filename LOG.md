@@ -24,6 +24,10 @@ Template:
 - Done: Submission cutoff raised from -2.0 to -1.0 (`MIN_SCORE` in `write_note.py`). Blocked drafts (failed checks or below cutoff) are now remembered in `refusals.json` as BLOCKED for 3 days (`REFUSAL_TTL_BLOCKED_DAYS`). Seeded with the 12 posts blocked today.
 - Done: Run with cutoff -1.0: `--num-posts 100 --concurrency 4`. 97 fetched, 21 skipped, 76 researched -> 14 notes submitted, 49 declined, 13 blocked (9 below cutoff, 4 too long). $5.43 ($0.071 per post). Log in `logs/submit-2026-11-24d.log`.
 - Results / numbers: Totals over 43 notes: ClaimOpinion High 17 / Medium 24 / Low 2 (40% High, 5% Low), UrlValidity and HarassmentAbuse High 43/43. All 30 notes scored before submitting so far: every pre-score > 0 came back High, every one below came back Medium.
+- Done: Run 7: `--num-posts 100 --concurrency 4`. 100 fetched, 52 skipped (42 declined/blocked, 10 noted), 48 researched -> 12 notes submitted, 26 declined, 10 blocked (9 below the -1.0 cutoff, 1 no URL). $3.69 ($0.077 per post). Log in `logs/submit-2026-11-24e.log`.
+- Results / numbers: 55 test notes in total, past the 50 needed. Latest-50 window: ClaimOpinion High 22 / Medium 26 / Low 2 (44% High, 4% Low), UrlValidity High 49/50 (98%), HarassmentAbuse High 50/50. All four requirements met.
+- Issue: first UrlValidity Low. Note 2125324899011215537 cites a usda.gov blog URL that returns HTTP 403 to automated requests, the same bot-blocking seen on politico/apnews/stackexchange earlier. X's checker also scored it Low, so a 403 seen by our own request is a real signal. Only 1 miss allowed per ~20 notes at the 95% bar.
+- Next: check links with `validate(check_urls=True)` before submitting; stop bulk runs, wait for X admission.
 - Next: 7 notes to go to reach 50 before ~2026-12-08.
 - Next: keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
 
