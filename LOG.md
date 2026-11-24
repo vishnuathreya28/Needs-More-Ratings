@@ -22,7 +22,9 @@ Template:
 - Results / numbers: Totals over 29 notes: ClaimOpinion High 10 / Medium 17 / Low 2 (34% High, 7% Low), UrlValidity and HarassmentAbuse High 29/29. High share is drifting toward the 30% line because most submitted drafts are Medium.
 - Issue: blocked drafts are not remembered, so those 12 posts get researched (and paid for) again on every run.
 - Done: Submission cutoff raised from -2.0 to -1.0 (`MIN_SCORE` in `write_note.py`). Blocked drafts (failed checks or below cutoff) are now remembered in `refusals.json` as BLOCKED for 3 days (`REFUSAL_TTL_BLOCKED_DAYS`). Seeded with the 12 posts blocked today.
-- Next: 21 notes to go to reach 50.
+- Done: Run with cutoff -1.0: `--num-posts 100 --concurrency 4`. 97 fetched, 21 skipped, 76 researched -> 14 notes submitted, 49 declined, 13 blocked (9 below cutoff, 4 too long). $5.43 ($0.071 per post). Log in `logs/submit-2026-11-24d.log`.
+- Results / numbers: Totals over 43 notes: ClaimOpinion High 17 / Medium 24 / Low 2 (40% High, 5% Low), UrlValidity and HarassmentAbuse High 43/43. All 30 notes scored before submitting so far: every pre-score > 0 came back High, every one below came back Medium.
+- Next: 7 notes to go to reach 50 before ~2026-12-08.
 - Next: keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
 
 ## 2026-11-23
