@@ -56,7 +56,9 @@ def _worker(
             f"\n*POST TEXT AND ANY QUOTED OR REPLIED-TO POST:*\n{note_result.context_description}\n"
         )
     if note_result.error is not None:
-        log_strings.append(f"\n*ERROR:* {note_result.error}")
+        log_strings.append(f"\n*{'BLOCKED' if note_result.blocked else 'ERROR'}:* {note_result.error}")
+        if note_result.blocked and refusals is not None:
+            refusal_cache.record(refusals, post_with_context.post.post_id, refusal_cache.BLOCKED)
     if note_result.refusal:
         log_strings.append(f"\n*REFUSAL:* {note_result.refusal}")
         if refusals is not None:
@@ -150,7 +152,7 @@ def main(
         eligible_posts = [p for p in eligible_posts if str(p.post.post_id) not in refusals]
         if before - len(eligible_posts):
             print(
-                f"Skipping {before - len(eligible_posts)} posts Grok recently declined "
+                f"Skipping {before - len(eligible_posts)} posts recently declined or blocked "
                 "(see refusals.json; --recheck-refusals to override)"
             )
     if len(eligible_posts) == 0:

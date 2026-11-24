@@ -13,7 +13,7 @@ NO_NOTE_NEEDED = "NO NOTE NEEDED"
 # Raw POST /2/evaluate_note scores vs the ClaimOpinion buckets of our first 13 notes (2026-11-23):
 # High were all > 0.17, Medium -1.68 to -0.12, Low < -2.3.
 HIGH_SCORE = 0.0  # below this, ask Grok for one rewrite
-MIN_SCORE = -2.0  # below this (likely Low), do not submit
+MIN_SCORE = -1.0  # below this, do not submit: keeps out Lows and the weaker Mediums that dilute the High share
 NOT_ENOUGH_EVIDENCE = "NOT ENOUGH EVIDENCE"
 
 NOTE_RESPONSE_SCHEMA = {
@@ -183,13 +183,15 @@ def research_post_and_write_note(
         if score is not None and score < MIN_SCORE:
             return NoteResult(
                 post=post_with_context,
-                error=f"ClaimOpinion score {score:.2f} is in the Low range, not submitting. Draft: {response['note_text']}",
+                blocked=True,
+                error=f"ClaimOpinion score {score:.2f} is below the {MIN_SCORE} cutoff, not submitting. Draft: {response['note_text']}",
                 context_description=post_with_context_description,
             )
 
     if problems:
         return NoteResult(
             post=post_with_context,
+            blocked=True,
             error=f"Draft still failed checks after one retry, not submitting: {problems}. Draft: {response['note_text']}",
             context_description=post_with_context_description,
         )

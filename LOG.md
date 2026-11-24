@@ -21,7 +21,8 @@ Template:
 - Done: Run with `--num-posts 100`: 99 fetched, 58 skipped, 41 researched -> 7 notes submitted (scores 0.95, 0.79, -0.10, -0.21, -0.35, -1.16, -1.86), 19 NO NOTE NEEDED, 3 NOT ENOUGH EVIDENCE, 12 drafts blocked (7 likely Low at -2.7 to -4.7; 5 failed checks: 3 too long, 1 emoji, 1 no URL). No 429s this time. $3.32 for 41 posts (62 calls, $0.081 per post).
 - Results / numbers: Totals over 29 notes: ClaimOpinion High 10 / Medium 17 / Low 2 (34% High, 7% Low), UrlValidity and HarassmentAbuse High 29/29. High share is drifting toward the 30% line because most submitted drafts are Medium.
 - Issue: blocked drafts are not remembered, so those 12 posts get researched (and paid for) again on every run.
-- Next: remember blocked posts; consider submitting only drafts scoring >= -1.0; 21 notes to go to reach 50.
+- Done: Submission cutoff raised from -2.0 to -1.0 (`MIN_SCORE` in `write_note.py`). Blocked drafts (failed checks or below cutoff) are now remembered in `refusals.json` as BLOCKED for 3 days (`REFUSAL_TTL_BLOCKED_DAYS`). Seeded with the 12 posts blocked today.
+- Next: 21 notes to go to reach 50.
 - Next: keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
 
 ## 2026-11-23

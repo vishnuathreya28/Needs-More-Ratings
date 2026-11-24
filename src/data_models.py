@@ -61,4 +61,5 @@ class NoteResult(BaseModel):
     error: Optional[str] = None
     post: Optional[PostWithContext] = None
     context_description: Optional[str] = None
+    blocked: bool = False  # a draft was written but held back by our own checks (remembered like a refusal)
     claim_opinion_score: Optional[float] = None  # from POST /2/evaluate_note, higher is better
