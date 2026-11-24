@@ -1,3 +1,4 @@
+from cnapi.evaluate_note import claim_opinion_score
 from data_models import (
     MisleadingTag,
     NoteResult,
@@ -8,6 +9,11 @@ from note_writer.llm_util import get_grok_search_json_response
 from validate_note import validate
 
 NO_NOTE_NEEDED = "NO NOTE NEEDED"
+
+# Raw POST /2/evaluate_note scores vs the ClaimOpinion buckets of our first 13 notes (2026-11-23):
+# High were all > 0.17, Medium -1.68 to -0.12, Low < -2.3.
+HIGH_SCORE = 0.0  # below this, ask Grok for one rewrite
+MIN_SCORE = -2.0  # below this (likely Low), do not submit
 NOT_ENOUGH_EVIDENCE = "NOT ENOUGH EVIDENCE"
 
 NOTE_RESPONSE_SCHEMA = {
@@ -55,14 +61,22 @@ Sources: every URL must be a real page you actually found in your search that lo
 original documents, the original publisher of a quote or video) and widely trusted references. \
 Never invent or guess a URL. \
 
-Write only what the evidence establishes, as plain fact: \
-- State the specific claim's correction directly: what is actually true, with the source. \
+How to write the note (this matters most):
+- The first sentence must name the post's specific claim and directly say what is wrong with it, \
+e.g. "Iran has not attacked the US mainland." or "The transcript is fabricated; the Premier League \
+says no such audio exists." or "The photo is from a 2019 protest in Chile, not this event."
+- The second sentence (optional) gives the key correcting fact: the real number, date, quote, or origin, with the source.
+- Never write a note that only states a related fact without saying how it contradicts the post. \
+Bad: "GTA VI released November 19, 2026." Good: "GTA VI is already out; it released November 19, 2026, \
+not in 2027 as the post says."
+- Avoid weak framings like "No credible reports confirm..." when you can state what is actually true instead.
 - Do NOT hedge or speculate. Never use words like "appears", "seems", "likely", "possibly", "may be", \
-"reportedly", or "unverified". If you can only hedge, the decision is "{NOT_ENOUGH_EVIDENCE}". \
-- Do NOT state opinions, predictions, advice, or value judgements. \
+"reportedly", or "unverified". If you can only hedge, the decision is "{NOT_ENOUGH_EVIDENCE}".
+- Do NOT state opinions, predictions, advice, how-to tips, or value judgements. Posts that are mainly \
+advice, jokes, personal experiences, or predictions get "{NO_NOTE_NEEDED}".
 - Address the claim, never the author: no sarcasm, no characterising the poster's motives or intelligence, \
-no labels for the poster. \
-- Do not add background facts that do not directly correct the post's claim. \
+no labels for the poster.
+- Do not add background facts that do not directly correct the post's claim.
 
 If the post does not need a community note (either because the original post is not misleading, \
 or does not contain any concrete fact-checkable claims, \
@@ -144,6 +158,35 @@ def research_post_and_write_note(
     if response["decision"] != "WRITE NOTE":
         return NoteResult(post=post_with_context, refusal=response["decision"], context_description=post_with_context_description)
 
+    score = None
+    if not problems:
+        try:
+            score = claim_opinion_score(post_with_context.post.post_id, response["note_text"])
+            if score is not None and score < HIGH_SCORE:
+                # One rewrite aimed at the ClaimOpinion evaluator; keep whichever draft scores higher.
+                rewrite_prompt = (
+                    note_prompt
+                    + "\n\nYour previous draft note was:\n"
+                    + response["note_text"]
+                    + "\n\nX's evaluator judged that it does not clearly address the post's claim, or reads "
+                    "as opinion. Rewrite it so the first sentence names the post's specific claim and says "
+                    "directly what is wrong with it, then the correcting fact and source. Same rules as above. "
+                    f'Choose "{NOT_ENOUGH_EVIDENCE}" if you cannot.'
+                )
+                retry = get_grok_search_json_response(rewrite_prompt, NOTE_RESPONSE_SCHEMA)
+                if retry["decision"] == "WRITE NOTE" and not _draft_problems(retry):
+                    retry_score = claim_opinion_score(post_with_context.post.post_id, retry["note_text"])
+                    if retry_score is not None and retry_score > score:
+                        response, score = retry, retry_score
+        except Exception as e:
+            return NoteResult(post=post_with_context, error=str(e), context_description=post_with_context_description)
+        if score is not None and score < MIN_SCORE:
+            return NoteResult(
+                post=post_with_context,
+                error=f"ClaimOpinion score {score:.2f} is in the Low range, not submitting. Draft: {response['note_text']}",
+                context_description=post_with_context_description,
+            )
+
     if problems:
         return NoteResult(
             post=post_with_context,
@@ -158,6 +201,7 @@ def research_post_and_write_note(
             note_text=response["note_text"],
             misleading_tags=[MisleadingTag(tag) for tag in response["misleading_tags"]],
         ),
+        claim_opinion_score=score,
         context_description=post_with_context_description,
     )
 

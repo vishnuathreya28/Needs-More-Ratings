@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -65,10 +66,14 @@ def _worker(
         log_strings.append(
             f"\n*MISLEADING TAGS:*\n  {[tag.value for tag in note_result.note.misleading_tags]}\n"
         )
+        if note_result.claim_opinion_score is not None:
+            log_strings.append(f"\n*CLAIMOPINION SCORE:* {note_result.claim_opinion_score:.2f}\n")
 
     if note_result.note is not None and out_path:
         with open(out_path, "a") as f:
-            f.write(note_result.note.model_dump_json() + "\n")
+            row = note_result.note.model_dump(mode="json")
+            row["claim_opinion_score"] = note_result.claim_opinion_score
+            f.write(json.dumps(row) + "\n")
 
     if note_result.note is not None and not dry_run:
         try:

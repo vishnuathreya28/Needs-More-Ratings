@@ -61,3 +61,4 @@ class NoteResult(BaseModel):
     error: Optional[str] = None
     post: Optional[PostWithContext] = None
     context_description: Optional[str] = None
+    claim_opinion_score: Optional[float] = None  # from POST /2/evaluate_note, higher is better
