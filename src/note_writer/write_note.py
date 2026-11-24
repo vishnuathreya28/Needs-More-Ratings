@@ -1,5 +1,11 @@
-from data_models import MisleadingTag, NoteResult, PostWithContext, ProposedMisleadingNote
+from data_models import (
+    MisleadingTag,
+    NoteResult,
+    PostWithContext,
+    ProposedMisleadingNote,
+)
 from note_writer.llm_util import get_grok_search_json_response
+from validate_note import validate
 
 NO_NOTE_NEEDED = "NO NOTE NEEDED"
 NOT_ENOUGH_EVIDENCE = "NOT ENOUGH EVIDENCE"
@@ -31,16 +37,32 @@ community note, then do not write a note, and instead set decision to "{NO_NOTE_
 "{NOT_ENOUGH_EVIDENCE}".
 
 If a note is justified, then please write \
-a very good community note, which is concise (at most 280 characters), interesting and clear to read, \
+a very good community note, which is concise, interesting and clear to read, \
 contains no unnecessary words, is backed by very solid evidence from sources that would be most likely \
 to be found trustworthy by people on both sides of the political spectrum (citing URL(s)), and is \
 written in a way that would be most likely to be found trustworthy by people on both sides of the \
 political spectrum. \
 
-The answer MUST be short, like a post on X (280 characters maximum, not counting URLs). \
+HARD LENGTH LIMIT: the ENTIRE note, INCLUDING every URL, must be 280 characters or fewer. \
+Count the URL characters too. Aim for one or two sentences of about 150-200 characters plus ONE URL. \
+Use a second URL only if it still fits within 280 characters total. \
 The note should not include any sort of wasted characters e.g. [Source] when listing a URL. Just state the URL directly in the text. \
 Each note MUST include at least one URL/link source. Nothing else counts as a source other than a URL/link. \
 Each note MUST NOT use any hashtags (#). Keep a professional tone with no hashtags, emojis, etc. \
+
+Sources: every URL must be a real page you actually found in your search that loads publicly \
+(no paywall, no login). Prefer primary sources (official sites, government or company statements, \
+original documents, the original publisher of a quote or video) and widely trusted references. \
+Never invent or guess a URL. \
+
+Write only what the evidence establishes, as plain fact: \
+- State the specific claim's correction directly: what is actually true, with the source. \
+- Do NOT hedge or speculate. Never use words like "appears", "seems", "likely", "possibly", "may be", \
+"reportedly", or "unverified". If you can only hedge, the decision is "{NOT_ENOUGH_EVIDENCE}". \
+- Do NOT state opinions, predictions, advice, or value judgements. \
+- Address the claim, never the author: no sarcasm, no characterising the poster's motives or intelligence, \
+no labels for the poster. \
+- Do not add background facts that do not directly correct the post's claim. \
 
 If the post does not need a community note (either because the original post is not misleading, \
 or does not contain any concrete fact-checkable claims, \
@@ -102,14 +124,32 @@ def research_post_and_write_note(
     try:
         note_prompt = _get_prompt_for_note_writing(post_with_context_description)
         response = get_grok_search_json_response(note_prompt, NOTE_RESPONSE_SCHEMA)
+        problems = _draft_problems(response)
+        if problems:
+            # One retry: show Grok its draft and what is wrong with it.
+            retry_prompt = (
+                note_prompt
+                + "\n\nYour previous draft note was:\n"
+                + response["note_text"]
+                + "\n\nIt broke these rules: "
+                + "; ".join(problems)
+                + ". Write a corrected answer that follows every rule, or choose "
+                + f'"{NOT_ENOUGH_EVIDENCE}" if a rule-following note is not possible.'
+            )
+            response = get_grok_search_json_response(retry_prompt, NOTE_RESPONSE_SCHEMA)
+            problems = _draft_problems(response)
     except Exception as e:
         return NoteResult(post=post_with_context, error=str(e), context_description=post_with_context_description)
 
     if response["decision"] != "WRITE NOTE":
         return NoteResult(post=post_with_context, refusal=response["decision"], context_description=post_with_context_description)
 
-    if not response["misleading_tags"]:
-        return NoteResult(post=post_with_context, error="Model wrote a note but chose no misleading tags.", context_description=post_with_context_description)
+    if problems:
+        return NoteResult(
+            post=post_with_context,
+            error=f"Draft still failed checks after one retry, not submitting: {problems}. Draft: {response['note_text']}",
+            context_description=post_with_context_description,
+        )
 
     return NoteResult(
         post=post_with_context,
@@ -120,3 +160,10 @@ def research_post_and_write_note(
         ),
         context_description=post_with_context_description,
     )
+
+
+def _draft_problems(response: dict) -> list[str]:
+    """Offline checks (length, URL present, no hashtags, tags) for a WRITE NOTE answer; [] otherwise."""
+    if response["decision"] != "WRITE NOTE":
+        return []
+    return validate(response["note_text"], response["misleading_tags"])

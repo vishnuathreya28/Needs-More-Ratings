@@ -12,6 +12,15 @@ Template:
 - Next:
 ```
 
+## 2026-11-23
+- Done: xAI key added to `.env`. First real runs: `main.py --num-posts 2 --dry-run`, then `--num-posts 10 --dry-run --concurrency 4`. Nothing submitted.
+- Results / numbers: 10 posts -> 6 notes written, 3 NO NOTE NEEDED, 1 NOT ENOUGH EVIDENCE. `validate_note.py --check-urls`: 3/6 passed. Failures: 2 notes over 280 chars (352, 392), 3 links returned 403 (politico, apnews, stackexchange; likely bot-blocking of the checker, not dead links). One note (Biden video) is speculative ("appears unverified/old or altered").
+- Done: Prompt fix in `src/note_writer/write_note.py`: 280-char limit now includes URLs, no hedging words (else NOT ENOUGH EVIDENCE), no opinions/advice, address the claim not the author, real publicly loading sources only. Drafts that fail `validate()` get one retry with the problems listed, and are not submitted if they still fail.
+- Done: First real submission (test mode): `main.py --num-posts 10 --concurrency 4`. 4 notes submitted, 5 NO NOTE NEEDED, 1 NOT ENOUGH EVIDENCE. Log in `logs/submit-2026-11-23.log`.
+- Results / numbers (evaluator scores, arrived within minutes): UrlValidity High 4/4, HarassmentAbuse High 4/4, ClaimOpinion High 2 / Medium 2 / Low 0. Medium: car defrosting (advice-like) and PS Store refunds (cited a guide site, not Sony). Already meets the admission ratios on this tiny sample; need 50 notes.
+- Done: `main.py` now skips posts this writer already has a note on (from `GET /2/notes/search/notes_written`) before calling Grok. Tested live: 10 fetched, 4 skipped.
+- Next: keep submitting batches of 10-20 per day to reach 50 notes before ~2026-12-08; push ClaimOpinion toward High (primary sources, skip advice/how-to posts).
+
 ## 2026-11-19
 - Done: Added mock mode (`--mock`, `MOCK_GROK`, `MOCK_X_API`) and `src/validate_note.py` (offline checks: length, URL, hashtags, emoji, tags; optional `--check-urls`).
 - Results / numbers: One end-to-end mock run: 4 posts fetched and parsed (incl. quoted, replied-to, media), 2 notes written, 1 NO NOTE NEEDED, 1 NOT ENOUGH EVIDENCE. 2/2 notes passed validation. Nothing published or submitted.

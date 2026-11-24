@@ -16,17 +16,18 @@ import sys
 from collections import Counter, defaultdict
 from typing import Dict, List
 
-from cnapi.xurl_util import run_xurl
 import dotenv
 
+from cnapi.xurl_util import run_xurl
 
-def get_all_test_notes_written() -> List[Dict]:
+
+def get_all_test_notes_written(test_mode: bool = True) -> List[Dict]:
     notes: List[Dict] = []
     pagination_token = None
     while True:
         path = (
             "/2/notes/search/notes_written"
-            "?test_mode=true"
+            f"?test_mode={'true' if test_mode else 'false'}"
             "&max_results=100"
             "&note.fields=id,info,status,test_result"
         )

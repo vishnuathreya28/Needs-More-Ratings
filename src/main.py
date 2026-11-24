@@ -6,10 +6,12 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+import dotenv
+
+from check_scores import get_all_test_notes_written
 from cnapi.get_api_eligible_posts import get_posts_eligible_for_notes
 from cnapi.submit_note import submit_note
 from data_models import NoteResult, Post, PostWithContext
-import dotenv
 from note_writer.write_note import research_post_and_write_note
 
 
@@ -80,6 +82,26 @@ def _worker(
     print("".join(log_strings) + "\n")
 
 
+def _skip_already_noted(posts: List[PostWithContext], test_mode: bool) -> List[PostWithContext]:
+    """
+    Drop posts this writer already has a note on, before spending a Grok call on them.
+    A writer can submit only one note per post, so a second draft would be rejected anyway.
+    """
+    if _env_true("MOCK_X_API"):
+        return posts
+    try:
+        written = get_all_test_notes_written(test_mode=test_mode)
+    except Exception as e:
+        print(f"Could not list notes already written, processing all posts anyway:\n{_xurl_error_details(e)}\n")
+        return posts
+    noted = {str((n.get("info") or {}).get("post_id")) for n in written}
+    kept = [p for p in posts if str(p.post.post_id) not in noted]
+    skipped = len(posts) - len(kept)
+    if skipped:
+        print(f"Skipping {skipped} posts that already have a note from this writer")
+    return kept
+
+
 def main(
     num_posts: int = 10,
     dry_run: bool = False,
@@ -109,6 +131,7 @@ def main(
     print(
         f"  Eligible Post IDs: {', '.join([str(post_with_context.post.post_id) for post_with_context in eligible_posts])}\n"
     )
+    eligible_posts = _skip_already_noted(eligible_posts, test_mode)
     if len(eligible_posts) == 0:
         print("No posts to process.")
         return
