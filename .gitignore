@@ -11,6 +11,7 @@ __pycache__/
 .DS_Store
 
 # Run outputs
+refusals.json
 notes*.jsonl
 logs/
 *.log

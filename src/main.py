@@ -8,10 +8,12 @@ from typing import List
 
 import dotenv
 
+import refusal_cache
 from check_scores import get_all_test_notes_written
 from cnapi.get_api_eligible_posts import get_posts_eligible_for_notes
 from cnapi.submit_note import submit_note
-from data_models import NoteResult, Post, PostWithContext
+from data_models import NoteResult, PostWithContext
+from note_writer.llm_util import USAGE
 from note_writer.write_note import research_post_and_write_note
 
 
@@ -39,6 +41,7 @@ def _worker(
     dry_run: bool = False,
     test_mode: bool = True,
     out_path: str | None = None,
+    refusals: dict | None = None,
 ):
     """
     Fetch and try to write and submit a note for one post.
@@ -55,6 +58,8 @@ def _worker(
         log_strings.append(f"\n*ERROR:* {note_result.error}")
     if note_result.refusal:
         log_strings.append(f"\n*REFUSAL:* {note_result.refusal}")
+        if refusals is not None:
+            refusal_cache.record(refusals, post_with_context.post.post_id, note_result.refusal)
     if note_result.note:
         log_strings.append(f"\n*NOTE:*\n  {note_result.note.note_text}\n")
         log_strings.append(
@@ -108,6 +113,7 @@ def main(
     concurrency: int = 1,
     test_mode: bool = True,
     out_path: str | None = None,
+    recheck_refusals: bool = False,
 ):
     """
     Get up to `num_posts` recent posts eligible for notes and write notes for them.
@@ -132,21 +138,51 @@ def main(
         f"  Eligible Post IDs: {', '.join([str(post_with_context.post.post_id) for post_with_context in eligible_posts])}\n"
     )
     eligible_posts = _skip_already_noted(eligible_posts, test_mode)
+    # Mock runs never touch the real refusal file
+    refusals = None if _env_true("MOCK_GROK") else refusal_cache.load()
+    if refusals and not recheck_refusals:
+        before = len(eligible_posts)
+        eligible_posts = [p for p in eligible_posts if str(p.post.post_id) not in refusals]
+        if before - len(eligible_posts):
+            print(
+                f"Skipping {before - len(eligible_posts)} posts Grok recently declined "
+                "(see refusals.json; --recheck-refusals to override)"
+            )
     if len(eligible_posts) == 0:
         print("No posts to process.")
         return
 
-    if concurrency > 1:
-        with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = [
-                executor.submit(_worker, post, dry_run, test_mode, out_path) for post in eligible_posts
-            ]
-            for future in futures:
-                future.result()
-    else:
-        for post in eligible_posts:
-            _worker(post, dry_run, test_mode, out_path)
+    try:
+        if concurrency > 1:
+            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+                futures = [
+                    executor.submit(_worker, post, dry_run, test_mode, out_path, refusals)
+                    for post in eligible_posts
+                ]
+                for future in futures:
+                    future.result()
+        else:
+            for post in eligible_posts:
+                _worker(post, dry_run, test_mode, out_path, refusals)
+    finally:
+        if refusals is not None:
+            refusal_cache.save(refusals)
+        _print_usage(len(eligible_posts))
     print("Done.")
+
+
+def _print_usage(num_posts: int) -> None:
+    if not USAGE["calls"]:
+        return
+    line = (
+        f"Grok usage: {USAGE['calls']} calls for {num_posts} posts, "
+        f"{USAGE['input_tokens']:,} input / {USAGE['output_tokens']:,} output tokens"
+    )
+    if USAGE["cost_known"]:
+        line += f", cost ${USAGE['cost_usd']:.4f} (${USAGE['cost_usd'] / max(num_posts, 1):.4f} per post)"
+    else:
+        line += ", cost not reported by the API (check console.x.ai)"
+    print(line)
 
 
 if __name__ == "__main__":
@@ -176,6 +212,11 @@ if __name__ == "__main__":
         default=None,
         help="Append each written note as a JSON line to this file (check it with src/validate_note.py)",
     )
+    parser.add_argument(
+        "--recheck-refusals",
+        action="store_true",
+        help="Research posts again even if Grok declined them recently (ignores refusals.json)",
+    )
     args = parser.parse_args()
     if args.mock:
         os.environ["MOCK_GROK"] = "true"
@@ -191,4 +232,5 @@ if __name__ == "__main__":
         concurrency=args.concurrency,
         test_mode=os.getenv("TEST_MODE", "true").strip().lower() != "false",
         out_path=args.out,
+        recheck_refusals=args.recheck_refusals,
     )
