@@ -26,6 +26,32 @@ def _has_emoji(text: str) -> bool:
     return any(unicodedata.category(ch) == "So" for ch in text)
 
 
+BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+DEAD_STATUSES = {404, 410}
+
+
+def dead_link_problems(note_text: str) -> list[str]:
+    """
+    Narrow link check: flag only links that are clearly dead (HTTP 404 or 410), which usually
+    means Grok invented or mistyped the URL. Deliberately ignores 401, 403, 5xx, timeouts and
+    connection errors: on 2026-11-24 about 20 links that returned 401/403 to us were still scored
+    High by X's UrlValidity, so a strict "must return 200" check would block good links.
+    A 404 is confirmed with a second request before it counts.
+    """
+    problems: list[str] = []
+    for url in URL_RE.findall(note_text):
+        url = url.rstrip(").,;")
+        codes = []
+        for headers in ({}, {"User-Agent": BROWSER_UA}):
+            try:
+                codes.append(requests.get(url, timeout=10, allow_redirects=True, headers=headers).status_code)
+            except requests.RequestException:
+                break
+        if len(codes) == 2 and all(c in DEAD_STATUSES for c in codes):
+            problems.append(f"link looks dead (HTTP {codes[1]}): {url}")
+    return problems
+
+
 def validate(note_text: str, tags: list[str], check_urls: bool = False) -> list[str]:
     """Return a list of problems; empty means the note passed."""
     problems: list[str] = []
@@ -71,7 +97,8 @@ def main() -> int:
     parser.add_argument("--file", help="JSON lines file of notes (post_id, note_text, misleading_tags)")
     parser.add_argument("--text", help="A single note's text")
     parser.add_argument("--tags", nargs="*", default=[], help="Misleading tags for --text")
-    parser.add_argument("--check-urls", action="store_true", help="GET each URL and require HTTP 200")
+    parser.add_argument("--check-urls", action="store_true", help="GET each URL and require HTTP 200 (strict: many good links return 403 to scripts)")
+    parser.add_argument("--check-dead-links", action="store_true", help="Only flag links that return 404/410 (what the writer uses)")
     args = parser.parse_args()
 
     notes = []
@@ -86,6 +113,8 @@ def main() -> int:
     failed = 0
     for n in notes:
         problems = validate(n["note_text"], n.get("misleading_tags", []), args.check_urls)
+        if args.check_dead_links:
+            problems += dead_link_problems(n["note_text"])
         status = "FAIL" if problems else "PASS"
         print(f"[{status}] post {n['post_id']}: {n['note_text'][:80]}...")
         for p in problems:

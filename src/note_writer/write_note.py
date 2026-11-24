@@ -1,3 +1,5 @@
+import os
+
 from cnapi.evaluate_note import claim_opinion_score
 from data_models import (
     MisleadingTag,
@@ -6,7 +8,7 @@ from data_models import (
     ProposedMisleadingNote,
 )
 from note_writer.llm_util import get_grok_search_json_response
-from validate_note import validate
+from validate_note import dead_link_problems, validate
 
 NO_NOTE_NEEDED = "NO NOTE NEEDED"
 
@@ -209,7 +211,14 @@ def research_post_and_write_note(
 
 
 def _draft_problems(response: dict) -> list[str]:
-    """Offline checks (length, URL present, no hashtags, tags) for a WRITE NOTE answer; [] otherwise."""
+    """Checks for a WRITE NOTE answer: length, URL present, no hashtags, tags, and no dead (404/410) links."""
     if response["decision"] != "WRITE NOTE":
         return []
-    return validate(response["note_text"], response["misleading_tags"])
+    problems = validate(response["note_text"], response["misleading_tags"])
+    if not problems and not _mock_mode():
+        problems += dead_link_problems(response["note_text"])
+    return problems
+
+
+def _mock_mode() -> bool:
+    return any(os.getenv(v, "").strip().lower() == "true" for v in ("MOCK_GROK", "MOCK_X_API"))
