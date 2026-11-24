@@ -17,6 +17,11 @@ Template:
 - Results / numbers: $1.31 for 24 posts ($0.055 per post). Pre-submit scores 0.87, 0.59, 0.31, 0.22 (all came back High) and -0.44, -0.84, -1.45, -1.55 (all came back Medium): calibration held 8/8. Totals over 21 notes: ClaimOpinion High 8 / Medium 11 / Low 2 (38% High, 10% Low), UrlValidity and HarassmentAbuse High 21/21.
 - Blockers: xAI capacity errors; `llm_util.py` has no retry.
 - Done: `llm_util.py` retries xAI calls on 429, 5xx, timeouts and connection errors (5 attempts, ~10/20/40/80 s backoff with jitter, honours Retry-After); 400/401 fail at once. Tested with a fake server: 429-503-timeout-200 succeeds, 400 fails immediately, 5x429 gives up.
+- Done: Run with `--num-posts 60`: only 3 new posts (56 of 59 already noted/declined), 1 note (-1.19). Found the cap was ours: `max_results=100` returns 99 posts plus a `next_token`, so the eligible pool is larger than 60.
+- Done: Run with `--num-posts 100`: 99 fetched, 58 skipped, 41 researched -> 7 notes submitted (scores 0.95, 0.79, -0.10, -0.21, -0.35, -1.16, -1.86), 19 NO NOTE NEEDED, 3 NOT ENOUGH EVIDENCE, 12 drafts blocked (7 likely Low at -2.7 to -4.7; 5 failed checks: 3 too long, 1 emoji, 1 no URL). No 429s this time. $3.32 for 41 posts (62 calls, $0.081 per post).
+- Results / numbers: Totals over 29 notes: ClaimOpinion High 10 / Medium 17 / Low 2 (34% High, 7% Low), UrlValidity and HarassmentAbuse High 29/29. High share is drifting toward the 30% line because most submitted drafts are Medium.
+- Issue: blocked drafts are not remembered, so those 12 posts get researched (and paid for) again on every run.
+- Next: remember blocked posts; consider submitting only drafts scoring >= -1.0; 21 notes to go to reach 50.
 - Next: keep daily runs; 29 notes to go to reach 50 before ~2026-12-08.
 
 ## 2026-11-23
