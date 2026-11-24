@@ -20,6 +20,9 @@ Template:
 - Results / numbers (evaluator scores, arrived within minutes): UrlValidity High 4/4, HarassmentAbuse High 4/4, ClaimOpinion High 2 / Medium 2 / Low 0. Medium: car defrosting (advice-like) and PS Store refunds (cited a guide site, not Sony). Already meets the admission ratios on this tiny sample; need 50 notes.
 - Done: `main.py` now skips posts this writer already has a note on (from `GET /2/notes/search/notes_written`) before calling Grok. Tested live: 10 fetched, 4 skipped.
 - Done: Refusal memory (`src/refusal_cache.py`, `refusals.json`, gitignored): declined posts are skipped for 7 days (NO NOTE NEEDED) or 2 days (NOT ENOUGH EVIDENCE); `--recheck-refusals` overrides. Seeded with 6 refusals from today. Each run now prints Grok token usage and cost. Effect: of the 10 newest eligible posts, only 1 is still left to research.
+- Done: Second submission: `main.py --num-posts 30 --concurrency 4`. 30 fetched, 4 skipped (already noted), 6 skipped (recent refusals), 20 researched -> 9 notes submitted, 8 NO NOTE NEEDED, 3 NOT ENOUGH EVIDENCE. Log in `logs/submit-2026-11-23b.log`.
+- Results / numbers: Grok cost $1.17 for 20 posts (22 calls incl. 2 retries), $0.058 per post, ~25k input tokens per call. Totals over 13 notes: UrlValidity High 13/13, HarassmentAbuse High 13/13, ClaimOpinion High 4 / Medium 7 / Low 2 (31% High, borderline vs the 30% bar). The 2 Lows state a fact without saying what the post got wrong (GTA VI release date, DHS deportation count); Mediums lean on "no credible reports" or add loosely related context.
+- Next: rewrite prompt so each note names the post's specific claim and says plainly why it is wrong; keep daily runs of ~30 posts.
 - Next: keep submitting batches of 10-20 per day to reach 50 notes before ~2026-12-08; push ClaimOpinion toward High (primary sources, skip advice/how-to posts).
 
 ## 2026-11-19
